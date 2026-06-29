@@ -163,8 +163,6 @@ show access-lists
 
 ```
 .
-├── Red_Multisucursal.pkt
-├── README.md
 ├── capturas/
 │   ├── topologia.png
 │   ├── ospf.png
@@ -172,6 +170,9 @@ show access-lists
 │   └── acl.png
 └── docs/
     └── configuracion.txt
+├── README.md
+├── Red_Multisucursal.pkt
+
 ```
 
 ---
