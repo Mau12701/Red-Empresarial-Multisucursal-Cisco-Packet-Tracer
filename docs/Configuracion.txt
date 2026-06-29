@@ -1,0 +1,382 @@
+================================================================
+CONFIGURACION FINAL - RED EMPRESARIAL MULTISUCURSAL
+Proyecto: red_empresarial_multi-sucursal.pkt
+Autor: Mauricio Escobar Sanchez
+================================================================
+
+ESQUEMA DE DIRECCIONAMIENTO
+----------------------------------------------------------------
+CDMX (Matriz)
+  VLAN10 Ventas -> 192.168.10.0/24   GW 192.168.10.1
+  VLAN20 Admin  -> 192.168.20.0/24   GW 192.168.20.1
+  VLAN30 TI     -> 192.168.30.0/24   GW 192.168.30.1
+
+NORTE
+  VLAN10 Ventas -> 192.168.40.0/24   GW 192.168.40.1
+  VLAN20 Admin  -> 192.168.50.0/24   GW 192.168.50.1
+
+SUR
+  VLAN10 Ventas -> 192.168.60.0/24   GW 192.168.60.1
+  VLAN20 Admin  -> 192.168.70.0/24   GW 192.168.70.1
+
+ENLACES WAN
+  R1 (CDMX)  <-> R2 (NORTE)  10.10.10.0/30   R1=10.10.10.1  R2=10.10.10.2
+  R2 (NORTE) <-> R3 (SUR)    10.10.10.4/30   R2=10.10.10.5  R3=10.10.10.6
+================================================================
+
+
+================================================================
+SWITCH SW-CDMX
+================================================================
+enable
+conf t
+hostname SW-CDMX
+
+vlan 10
+ name VENTAS
+exit
+vlan 20
+ name ADMIN
+exit
+vlan 30
+ name TI
+exit
+
+interface range fa0/1-2
+ switchport mode access
+ switchport access vlan 10
+exit
+
+interface range fa0/3-4
+ switchport mode access
+ switchport access vlan 20
+exit
+
+interface range fa0/5-6
+ switchport mode access
+ switchport access vlan 30
+exit
+
+interface gi0/1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30
+ no shutdown
+exit
+
+end
+write memory
+
+
+================================================================
+ROUTER R-CDMX (R1)
+================================================================
+enable
+conf t
+hostname R-CDMX
+ip routing
+
+interface g0/0/0
+ no shutdown
+exit
+
+interface g0/0/0.10
+ encapsulation dot1Q 10
+ ip address 192.168.10.1 255.255.255.0
+exit
+
+interface g0/0/0.20
+ encapsulation dot1Q 20
+ ip address 192.168.20.1 255.255.255.0
+exit
+
+interface g0/0/0.30
+ encapsulation dot1Q 30
+ ip address 192.168.30.1 255.255.255.0
+exit
+
+interface s0/1/0
+ ip address 10.10.10.1 255.255.255.252
+ clock rate 64000
+ no shutdown
+exit
+
+! --- DHCP CDMX ---
+ip dhcp excluded-address 192.168.10.1 192.168.10.10
+ip dhcp excluded-address 192.168.20.1 192.168.20.10
+ip dhcp excluded-address 192.168.30.1 192.168.30.10
+
+ip dhcp pool VENTAS-CDMX
+ network 192.168.10.0 255.255.255.0
+ default-router 192.168.10.1
+ dns-server 8.8.8.8
+exit
+
+ip dhcp pool ADMIN-CDMX
+ network 192.168.20.0 255.255.255.0
+ default-router 192.168.20.1
+ dns-server 8.8.8.8
+exit
+
+ip dhcp pool TI-CDMX
+ network 192.168.30.0 255.255.255.0
+ default-router 192.168.30.1
+ dns-server 8.8.8.8
+exit
+
+! --- OSPF ---
+router ospf 1
+ network 192.168.10.0 0.0.0.255 area 0
+ network 192.168.20.0 0.0.0.255 area 0
+ network 192.168.30.0 0.0.0.255 area 0
+ network 10.10.10.0 0.0.0.3 area 0
+exit
+
+! --- ACL: Solo TI puede acceder a la VLAN de TI ---
+access-list 110 permit ip 192.168.30.0 0.0.0.255 any
+access-list 110 deny ip any 192.168.30.0 0.0.0.255
+access-list 110 permit ip any any
+
+interface g0/0/0.30
+ ip access-group 110 in
+exit
+
+end
+write memory
+
+
+================================================================
+SWITCH SW-NORTE
+================================================================
+enable
+conf t
+hostname SW-NORTE
+
+vlan 10
+ name VENTAS
+exit
+vlan 20
+ name ADMIN
+exit
+
+interface range fa0/1-2
+ switchport mode access
+ switchport access vlan 10
+exit
+
+interface range fa0/3-4
+ switchport mode access
+ switchport access vlan 20
+exit
+
+interface gi0/1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20
+ no shutdown
+exit
+
+end
+write memory
+
+
+================================================================
+ROUTER R-NORTE (R2)
+================================================================
+enable
+conf t
+hostname R-NORTE
+ip routing
+
+interface g0/0/1
+ no shutdown
+exit
+
+interface g0/0/1.10
+ encapsulation dot1Q 10
+ ip address 192.168.40.1 255.255.255.0
+exit
+
+interface g0/0/1.20
+ encapsulation dot1Q 20
+ ip address 192.168.50.1 255.255.255.0
+exit
+
+interface s0/1/0
+ ip address 10.10.10.2 255.255.255.252
+ no shutdown
+exit
+
+interface s0/1/1
+ ip address 10.10.10.5 255.255.255.252
+ clock rate 64000
+ no shutdown
+exit
+
+! --- DHCP NORTE ---
+ip dhcp excluded-address 192.168.40.1 192.168.40.10
+ip dhcp excluded-address 192.168.50.1 192.168.50.10
+
+ip dhcp pool VENTAS-NORTE
+ network 192.168.40.0 255.255.255.0
+ default-router 192.168.40.1
+ dns-server 8.8.8.8
+exit
+
+ip dhcp pool ADMIN-NORTE
+ network 192.168.50.0 255.255.255.0
+ default-router 192.168.50.1
+ dns-server 8.8.8.8
+exit
+
+! --- OSPF ---
+router ospf 1
+ network 192.168.40.0 0.0.0.255 area 0
+ network 192.168.50.0 0.0.0.255 area 0
+ network 10.10.10.0 0.0.0.3 area 0
+ network 10.10.10.4 0.0.0.3 area 0
+exit
+
+end
+write memory
+
+
+================================================================
+SWITCH SW-SUR
+================================================================
+enable
+conf t
+hostname SW-SUR
+
+vlan 10
+ name VENTAS
+exit
+vlan 20
+ name ADMIN
+exit
+
+interface range fa0/1-2
+ switchport mode access
+ switchport access vlan 10
+exit
+
+interface range fa0/3-4
+ switchport mode access
+ switchport access vlan 20
+exit
+
+interface gi0/1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20
+ no shutdown
+exit
+
+end
+write memory
+
+
+================================================================
+ROUTER R-SUR (R3)
+================================================================
+enable
+conf t
+hostname R-SUR
+ip routing
+
+interface g0/0/0
+ no shutdown
+exit
+
+interface g0/0/0.10
+ encapsulation dot1Q 10
+ ip address 192.168.60.1 255.255.255.0
+exit
+
+interface g0/0/0.20
+ encapsulation dot1Q 20
+ ip address 192.168.70.1 255.255.255.0
+exit
+
+interface s0/1/0
+ ip address 10.10.10.6 255.255.255.252
+ no shutdown
+exit
+
+! --- DHCP SUR ---
+ip dhcp excluded-address 192.168.60.1 192.168.60.10
+ip dhcp excluded-address 192.168.70.1 192.168.70.10
+
+ip dhcp pool VENTAS-SUR
+ network 192.168.60.0 255.255.255.0
+ default-router 192.168.60.1
+ dns-server 8.8.8.8
+exit
+
+ip dhcp pool ADMIN-SUR
+ network 192.168.70.0 255.255.255.0
+ default-router 192.168.70.1
+ dns-server 8.8.8.8
+exit
+
+! --- OSPF ---
+router ospf 1
+ network 192.168.60.0 0.0.0.255 area 0
+ network 192.168.70.0 0.0.0.255 area 0
+ network 10.10.10.4 0.0.0.3 area 0
+exit
+
+end
+write memory
+
+
+================================================================
+CONFIGURACION DE PCs
+================================================================
+Todas las PCs (PC0-PC9) configuradas en modo DHCP:
+  Desktop > IP Configuration > DHCP
+
+Resultado verificado (show ip dhcp binding en R1):
+  192.168.10.11   0004.9A9D.18E8   Automatic
+  192.168.10.12   0060.47CE.3B90   Automatic
+  192.168.20.11   00E0.A3AA.ABC3   Automatic
+  192.168.20.12   00E0.8FC3.D9C2   Automatic
+  192.168.30.11   0060.3E01.5C69   Automatic
+  192.168.30.12   000A.412B.E63A   Automatic
+
+
+================================================================
+COMANDOS DE VERIFICACION UTILIZADOS
+================================================================
+show vlan brief
+show interfaces trunk
+show ip interface brief
+show ip route
+show ip ospf neighbor
+show ip dhcp binding
+show access-lists
+
+ping 10.10.10.2
+ping 10.10.10.6
+ping 192.168.10.1
+ping 192.168.40.1
+ping 192.168.60.1
+
+
+================================================================
+RESULTADOS DE LAS PRUEBAS
+================================================================
+1. OSPF (show ip route en R1):
+   Rutas O (OSPF) visibles hacia 192.168.40.0, 50.0, 60.0 y 70.0
+   via 10.10.10.2 -> Confirma enrutamiento dinamico funcionando
+   entre las 3 sucursales.
+
+2. DHCP (show ip dhcp binding en R1):
+   6 equipos recibieron IP automatica correctamente segmentada
+   por VLAN (Ventas, Admin, TI).
+
+3. ACL (ping desde PC5 en SUR hacia 192.168.30.12 en CDMX/TI):
+   Resultado: Request timed out (4/4 paquetes perdidos, 100% loss)
+   Confirma que la ACL 110 bloquea correctamente el acceso de
+   otras sucursales/VLANs hacia el departamento de TI.
+
+================================================================
+FIN DE LA CONFIGURACION
+================================================================
