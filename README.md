@@ -1,5 +1,3 @@
-
-
 # Red Empresarial Multisucursal | Cisco Packet Tracer
 
 Simulación de una infraestructura de red empresarial con tres sucursales interconectadas mediante enlaces WAN, implementando segmentación de red, enrutamiento dinámico y políticas de seguridad utilizando Cisco Packet Tracer.
